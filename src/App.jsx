@@ -47,6 +47,7 @@ const TEAM_NAME_MAP = {
   // add more mappings as needed
 };
 
+
 const ROUND_POINTS = { R32:1, R16:2, QF:4, SF:8, F:16, Champion:32 };
 const ROUND_LABELS = { R32:"16avos de final", R16:"Octavos", QF:"Cuartos", SF:"Semifinal", F:"Final", Champion:"Campeón" };
 
@@ -339,6 +340,8 @@ export default function App() {
   const [groupResults, setGroupResults] = useState(FALLBACK_GROUP_RESULTS);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [apiError, setApiError] = useState(false);
+  const [teamsFromApi, setTeamsFromApi] = useState([]);
+
 
   // Always propagate winners before rendering
   const bracket = propagate(rawBracket);
@@ -411,7 +414,37 @@ export default function App() {
     return () => { mounted = false; clearInterval(id); };
   }, []);
 
-  const allTeams = PARTICIPANTS.flatMap(p => p.teams);
+  // Fetch teams list from API to populate `allTeams` and ensure flags exist
+  useEffect(() => {
+    let mounted = true;
+    async function fetchTeams() {
+      try {
+        const key = import.meta.env.VITE_FOOTBALL_API_KEY;
+        if (!key) throw new Error('No API key');
+        const res = await fetch('https://api.football-data.org/v4/competitions/WC/teams', {
+          headers: { 'X-Auth-Token': key }
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const teams = data.teams || [];
+        const mapped = teams.map(t => TEAM_NAME_MAP[t.name] || t.name);
+        // mutate FLAGS for missing teams to a neutral flag so UI shows something
+        teams.forEach((t, i) => {
+          const localName = TEAM_NAME_MAP[t.name] || t.name;
+          if (!FLAGS[localName]) {
+            // fallback to white flag; later we could map from country codes
+            FLAGS[localName] = '🏳️';
+          }
+        });
+        if (mounted) setTeamsFromApi([...new Set(mapped)]);
+      } catch (err) {
+        console.warn('Football teams API error', err);
+      }
+    }
+    fetchTeams();
+  }, []);
+
+  const allTeams = teamsFromApi.length ? teamsFromApi : PARTICIPANTS.flatMap(p => p.teams);
   const tabs = [
     { id:"ranking",       label:"🏆 Ranking" },
     { id:"bracket",       label:"🗓️ Bracket" },
