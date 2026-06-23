@@ -399,6 +399,34 @@ export default function App() {
           setGroupResults(mapped);
           setLastUpdated(new Date().toISOString());
           setApiError(false);
+
+          // Populate known bracket matches (only where teams already match a slot)
+          setRawBracket(prev => {
+            const b = JSON.parse(JSON.stringify(prev));
+            const rounds = ["R32","R16","QF","SF","F"];
+            mapped.forEach(([home, homeScore, awayScore, away]) => {
+              rounds.forEach(rnd => {
+                (b[rnd]||[]).forEach(m => {
+                  if ((m.home === home && m.away === away) || (m.home === away && m.away === home)) {
+                    // assign scores respecting the stored home/away order
+                    if (m.home === home) {
+                      m.homeScore = homeScore;
+                      m.awayScore = awayScore;
+                    } else {
+                      m.homeScore = awayScore;
+                      m.awayScore = homeScore;
+                    }
+                    if (m.homeScore != null && m.awayScore != null) {
+                      if (m.homeScore > m.awayScore) m.winner = m.home;
+                      else if (m.awayScore > m.homeScore) m.winner = m.away;
+                      else m.winner = null;
+                    }
+                  }
+                });
+              });
+            });
+            return b;
+          });
         }
       } catch (err) {
         console.warn('Football API error', err);
