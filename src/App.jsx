@@ -649,10 +649,11 @@ export default function App() {
                     {groupGames.length === 0 ? (
                       <p style={{ fontSize:13, color:"#9ca3af" }}>Sin resultados de grupos registrados.</p>
                     ) : groupGames.map((r, i) => {
-                      const isHome = r[0]===selectedTeam;
-                      const myScore = isHome ? r[1] : r[3];
-                      const oppScore = isHome ? r[3] : r[1];
-                      const opp = isHome ? r[2] : r[0];
+                      const isHome = r[0] === selectedTeam;
+                      // r format: [team1, score1, score2, team2, matchday]
+                      const myScore = isHome ? r[1] : r[2];
+                      const oppScore = isHome ? r[2] : r[1];
+                      const opp = isHome ? r[3] : r[0];
                       const res = myScore > oppScore ? "V" : myScore < oppScore ? "D" : "E";
                       const resLabel = res === "V" ? "Victoria" : res === "D" ? "Derrota" : "Empate";
                       return (
