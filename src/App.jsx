@@ -24,6 +24,29 @@ const FLAGS = {
   "USA":"🇺🇸","Senegal":"🇸🇳","Austria":"🇦🇹","Egipto":"🇪🇬",
 };
 
+// Map common API team names (English) to local Spanish names used in the app
+const TEAM_NAME_MAP = {
+  "Germany":"Alemania",
+  "Czech Republic":"Chequia",
+  "Curaçao":"Curazao",
+  "Curacao":"Curazao",
+  "Costa Rica":"Costa Rica",
+  "Ivory Coast":"Costa de Marfil",
+  "Côte d'Ivoire":"Costa de Marfil",
+  "South Korea":"Corea del Sur",
+  "Korea Republic":"Corea del Sur",
+  "Saudi Arabia":"Arabia Saudí",
+  "DR Congo":"RD Congo",
+  "Cabo Verde":"Cabo Verde",
+  "Cape Verde":"Cabo Verde",
+  "United States":"USA",
+  "USA":"USA",
+  "Haiti":"Haití",
+  "Curazao":"Curazao",
+  "Republic of Ireland":"Ireland",
+  // add more mappings as needed
+};
+
 const ROUND_POINTS = { R32:1, R16:2, QF:4, SF:8, F:16, Champion:32 };
 const ROUND_LABELS = { R32:"16avos de final", R16:"Octavos", QF:"Cuartos", SF:"Semifinal", F:"Final", Champion:"Campeón" };
 
@@ -359,8 +382,11 @@ export default function App() {
         const mapped = matches
           .filter(m => (m.stage === 'GROUP_STAGE') || (m.group))
           .map(m => {
-            const home = m.homeTeam?.name || '';
-            const away = m.awayTeam?.name || '';
+            let home = m.homeTeam?.name || '';
+            let away = m.awayTeam?.name || '';
+            // Normalize API names to local Spanish names when possible
+            if (TEAM_NAME_MAP[home]) home = TEAM_NAME_MAP[home];
+            if (TEAM_NAME_MAP[away]) away = TEAM_NAME_MAP[away];
             const homeScore = m.score?.fullTime?.home ?? null;
             const awayScore = m.score?.fullTime?.away ?? null;
             const matchday = m.matchday ?? (m.group ? Number((m.group+'').replace(/\D/g,'')) : null) ?? 0;
