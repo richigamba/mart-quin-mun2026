@@ -47,6 +47,19 @@ const TEAM_NAME_MAP = {
   // add more mappings as needed
 };
 
+// Return a flag element for a team object (from API) or a name string
+function TeamFlag({ team }) {
+  // team can be string name or object { name, crest, crestUrl, tla }
+  if (!team) return <span>🏳️</span>;
+  const name = typeof team === 'string' ? team : (team.name || '');
+  const crest = typeof team === 'object' ? (team.crest || team.crestUrl || team.crestUrl2) : null;
+  if (crest) {
+    return <img src={crest} alt={name} style={{ width:20, height:14, objectFit:'contain' }} />;
+  }
+  if (FLAGS[name]) return <span>{FLAGS[name]}</span>;
+  return <span>🏳️</span>;
+}
+
 
 const ROUND_POINTS = { R32:1, R16:2, QF:4, SF:8, F:16, Champion:32 };
 const ROUND_LABELS = { R32:"16avos de final", R16:"Octavos", QF:"Cuartos", SF:"Semifinal", F:"Final", Champion:"Campeón" };
@@ -781,16 +794,24 @@ export default function App() {
                       return (
                         <div style={{ marginTop:12, borderTop:"1px solid #f3f4f6", paddingTop:12 }}>
                           <div style={{ fontSize:13, fontWeight:600, color:"#374151", marginBottom:8 }}>Tabla - {grp.group || grp.stage}</div>
-                          <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:8, overflow:"hidden" }}>
+                            <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:8, overflow:"hidden" }}>
+                            <div style={{ display:"grid", gridTemplateColumns:"36px 1fr 60px 80px 60px", gap:0, alignItems:"center", padding:"8px 12px", background:"#f9fafb", fontSize:12, color:"#6b7280", fontWeight:700 }}>
+                              <div style={{ textAlign:"center" }}>Pos</div>
+                              <div>Equipo</div>
+                              <div style={{ textAlign:"right" }}>PJ</div>
+                              <div style={{ textAlign:"right" }}>W / D / L</div>
+                              <div style={{ textAlign:"right" }}>Pts</div>
+                            </div>
                             {grp.table.map((row, idx) => (
-                              <div key={row.team.id} style={{ display:"flex", gap:10, alignItems:"center", padding:"8px 12px", borderBottom: idx<grp.table.length-1?"1px solid #f3f4f6":"none" }}>
-                                <div style={{ width:28, textAlign:"center", fontWeight:700 }}>{row.position}</div>
-                                <div style={{ display:"flex", alignItems:"center", gap:8, flex:1 }}>
-                                  <div style={{ fontSize:18 }}>{FLAGS[row.team.name]||"🏳️"}</div>
+                              <div key={row.team.id} style={{ display:"grid", gridTemplateColumns:"36px 1fr 60px 80px 60px", gap:0, alignItems:"center", padding:"8px 12px", borderBottom: idx<grp.table.length-1?"1px solid #f3f4f6":"none" }}>
+                                <div style={{ textAlign:"center", fontWeight:700 }}>{row.position}</div>
+                                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                                  <div style={{ width:22, height:16 }}>{/* flag */}<TeamFlag team={row.team} /></div>
                                   <div style={{ fontWeight: row.team.name===selectedTeam?700:500 }}>{row.team.name}</div>
                                 </div>
-                                <div style={{ width:80, textAlign:"right", color:"#6b7280" }}>{row.playedGames} pj</div>
-                                <div style={{ width:70, textAlign:"right", fontWeight:700 }}>{row.points} pts</div>
+                                <div style={{ textAlign:"right", color:"#6b7280" }}>{row.playedGames}</div>
+                                <div style={{ textAlign:"right", fontWeight:700 }}>{row.won} / {row.draw} / {row.lost} <span style={{ marginLeft:8, color:"#6b7280" }}>({row.goalsFor}-{row.goalsAgainst} GD:{row.goalDifference})</span></div>
+                                <div style={{ textAlign:"right", fontWeight:700 }}>{row.points}</div>
                               </div>
                             ))}
                           </div>
