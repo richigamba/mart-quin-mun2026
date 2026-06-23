@@ -27,9 +27,9 @@ const FLAGS = {
 const ROUND_POINTS = { R32:1, R16:2, QF:4, SF:8, F:16, Champion:32 };
 const ROUND_LABELS = { R32:"16avos de final", R16:"Octavos", QF:"Cuartos", SF:"Semifinal", F:"Final", Champion:"Campeón" };
 
-// Group stage results — real data June 23 2026
+// Fallback group stage results (used when API is unavailable)
 // [team1, score1, score2, team2, matchday]
-const GROUP_RESULTS = [
+const FALLBACK_GROUP_RESULTS = [
   ["México",2,0,"Sudáfrica",1],["Corea del Sur",1,0,"Chequia",1],
   ["México",1,1,"Corea del Sur",2],["Chequia",2,0,"Sudáfrica",2],
   ["Brasil",1,0,"Marruecos",1],["Marruecos",4,1,"Haití",2],
@@ -312,6 +312,10 @@ export default function App() {
   const [tab, setTab] = useState("ranking");
   const [rawBracket, setRawBracket] = useState(INITIAL_BRACKET);
   const [selectedTeam, setSelectedTeam] = useState(null);
+  // Group results state (uses API when available, fallback otherwise)
+  const [groupResults, setGroupResults] = useState(FALLBACK_GROUP_RESULTS);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [apiError, setApiError] = useState(false);
 
   // Always propagate winners before rendering
   const bracket = propagate(rawBracket);
@@ -338,6 +342,49 @@ export default function App() {
     });
   }
 
+  // Fetch live matches from football-data.org and update group results
+  useEffect(() => {
+    let mounted = true;
+    async function fetchMatches() {
+      try {
+        const key = import.meta.env.VITE_FOOTBALL_API_KEY;
+        if (!key) throw new Error('No API key');
+        const res = await fetch('https://api.football-data.org/v4/competitions/WC/matches', {
+          headers: { 'X-Auth-Token': key }
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const matches = data.matches || [];
+        // Map API matches to [home, homeScore, awayScore, away, matchday]
+        const mapped = matches
+          .filter(m => (m.stage === 'GROUP_STAGE') || (m.group))
+          .map(m => {
+            const home = m.homeTeam?.name || '';
+            const away = m.awayTeam?.name || '';
+            const homeScore = m.score?.fullTime?.home ?? null;
+            const awayScore = m.score?.fullTime?.away ?? null;
+            const matchday = m.matchday ?? (m.group ? Number((m.group+'').replace(/\D/g,'')) : null) ?? 0;
+            return [home, homeScore, awayScore, away, matchday];
+          });
+        if (mounted && mapped.length > 0) {
+          setGroupResults(mapped);
+          setLastUpdated(new Date().toISOString());
+          setApiError(false);
+        }
+      } catch (err) {
+        console.warn('Football API error', err);
+        setApiError(true);
+        // keep fallback results
+      }
+    }
+
+    // Initial fetch
+    fetchMatches();
+    // Refresh every 5 minutes
+    const id = setInterval(fetchMatches, 5 * 60 * 1000);
+    return () => { mounted = false; clearInterval(id); };
+  }, []);
+
   const allTeams = PARTICIPANTS.flatMap(p => p.teams);
   const tabs = [
     { id:"ranking",       label:"🏆 Ranking" },
@@ -355,7 +402,17 @@ export default function App() {
           FIFA World Cup 2026™
         </div>
         <h1 style={{ margin:"0 0 4px", fontSize:24, fontWeight:700, color:"#fff" }}>⚽ Quiniela del Mundial</h1>
-        <p style={{ margin:"0 0 16px", color:"#a7f3d0", fontSize:13 }}>10 participantes · hover en ❓ para ver posibles rivales</p>
+        <p style={{ margin:"0 0 16px", color:"#a7f3d0", fontSize:13 }}>
+          10 participantes · hover en ❓ para ver posibles rivales
+          {lastUpdated && (
+            <span style={{ marginLeft:10, fontSize:12, color:"#bbf7d0" }}>
+              Última actualización: {new Date(lastUpdated).toLocaleString()}
+            </span>
+          )}
+          {apiError && (
+            <span style={{ marginLeft:8, fontSize:12, color:"#fecaca" }}> (API fallback)</span>
+          )}
+        </p>
         <div style={{ display:"flex", gap:4, justifyContent:"center", overflowX:"auto" }}>
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
@@ -506,7 +563,7 @@ export default function App() {
                   }
                 }
               }
-              const groupGames = GROUP_RESULTS.filter(r => r[0]===selectedTeam || r[2]===selectedTeam);
+              const groupGames = groupResults.filter(r => r[0]===selectedTeam || r[2]===selectedTeam);
 
               return (
                 <div style={{ background:"#fff", border:`2px solid ${p.color}`, borderRadius:14, padding:20 }}>
