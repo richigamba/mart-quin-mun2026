@@ -567,19 +567,34 @@ export default function App() {
                       <p style={{ fontSize:13, color:"#9ca3af" }}>Sin resultados de grupos registrados.</p>
                     ) : groupGames.map((r, i) => {
                       const isHome = r[0]===selectedTeam;
-                      const myScore = isHome?r[1]:r[3], oppScore = isHome?r[3]:r[1];
-                      const opp = isHome?r[2]:r[0];
-                      const res = myScore>oppScore?"V":myScore<oppScore?"D":"E";
+                      const myScore = isHome ? r[1] : r[3];
+                      const oppScore = isHome ? r[3] : r[1];
+                      const opp = isHome ? r[2] : r[0];
+                      const res = myScore > oppScore ? "V" : myScore < oppScore ? "D" : "E";
+                      const resLabel = res === "V" ? "Victoria" : res === "D" ? "Derrota" : "Empate";
                       return (
-                        <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderBottom:"1px solid #f9fafb" }}>
+                        <div key={i} style={{
+                          display:"grid", gridTemplateColumns:"auto 1fr auto",
+                          alignItems:"center", gap:10, padding:"10px 0",
+                          borderBottom: i < groupGames.length - 1 ? "1px solid #f3f4f6" : "none",
+                        }}>
                           <span style={{
-                            background: res==="V"?"#dcfce7": res==="D"?"#fee2e2":"#fef9c3",
-                            color: res==="V"?"#16a34a": res==="D"?"#dc2626":"#ca8a04",
-                            fontWeight:700, fontSize:11, padding:"1px 7px", borderRadius:10, minWidth:22, textAlign:"center",
+                            background: res === "V" ? "#dcfce7" : res === "D" ? "#fee2e2" : "#fef9c3",
+                            color: res === "V" ? "#16a34a" : res === "D" ? "#dc2626" : "#ca8a04",
+                            fontWeight:700, fontSize:11, padding:"4px 8px", borderRadius:999,
+                            textAlign:"center", minWidth:32,
                           }}>{res}</span>
-                          <span style={{ fontSize:13 }}>vs {FLAGS[opp]||"🏳️"} {opp}</span>
-                          <span style={{ fontWeight:700, fontSize:13, marginLeft:"auto" }}>{myScore} - {oppScore}</span>
-                          <span style={{ fontSize:11, color:"#9ca3af" }}>J{r[4]}</span>
+                          <div style={{ minWidth:0 }}>
+                            <div style={{ display:"flex", flexWrap:"wrap", gap:8, alignItems:"center", fontSize:13, color:"#111" }}>
+                              <span style={{ fontWeight:700 }}>{FLAGS[selectedTeam]||"🏳️"} {selectedTeam}</span>
+                              <span style={{ fontSize:12, color:"#6b7280" }}>{resLabel}</span>
+                            </div>
+                            <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginTop:4, color:"#374151", fontSize:13 }}>
+                              <span style={{ fontWeight:700 }}>{myScore} - {oppScore}</span>
+                              <span>vs {FLAGS[opp]||"🏳️"} {opp}</span>
+                            </div>
+                          </div>
+                          <span style={{ fontSize:11, color:"#9ca3af", whiteSpace:"nowrap" }}>J{r[4]}</span>
                         </div>
                       );
                     })}
