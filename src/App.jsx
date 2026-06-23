@@ -341,6 +341,7 @@ export default function App() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [apiError, setApiError] = useState(false);
   const [teamsFromApi, setTeamsFromApi] = useState([]);
+  const [standings, setStandings] = useState([]);
 
 
   // Always propagate winners before rendering
@@ -470,6 +471,35 @@ export default function App() {
       }
     }
     fetchTeams();
+  }, []);
+
+  // Fetch standings (group tables) from API
+  useEffect(() => {
+    let mounted = true;
+    async function fetchStandings() {
+      try {
+        const key = import.meta.env.VITE_FOOTBALL_API_KEY;
+        if (!key) throw new Error('No API key');
+        const res = await fetch('https://api.football-data.org/v4/competitions/WC/standings', {
+          headers: { 'X-Auth-Token': key }
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        const table = data.standings || [];
+        // Normalize team names in table
+        const normalized = table.map(group => ({
+          ...group,
+          table: group.table.map(row => ({
+            ...row,
+            team: { ...row.team, name: TEAM_NAME_MAP[row.team.name] || row.team.name }
+          }))
+        }));
+        if (mounted) setStandings(normalized);
+      } catch (err) {
+        console.warn('Football standings API error', err);
+      }
+    }
+    fetchStandings();
   }, []);
 
   const allTeams = teamsFromApi.length ? teamsFromApi : PARTICIPANTS.flatMap(p => p.teams);
@@ -743,6 +773,30 @@ export default function App() {
                         </div>
                       );
                     })}
+                    {/* Standings for the selected team's group */}
+                    {standings.length > 0 && (() => {
+                      // find the group that contains the selectedTeam
+                      const grp = standings.find(g => g.table.some(row => (TEAM_NAME_MAP[row.team.name] || row.team.name) === selectedTeam));
+                      if (!grp) return null;
+                      return (
+                        <div style={{ marginTop:12, borderTop:"1px solid #f3f4f6", paddingTop:12 }}>
+                          <div style={{ fontSize:13, fontWeight:600, color:"#374151", marginBottom:8 }}>Tabla - {grp.group || grp.stage}</div>
+                          <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:8, overflow:"hidden" }}>
+                            {grp.table.map((row, idx) => (
+                              <div key={row.team.id} style={{ display:"flex", gap:10, alignItems:"center", padding:"8px 12px", borderBottom: idx<grp.table.length-1?"1px solid #f3f4f6":"none" }}>
+                                <div style={{ width:28, textAlign:"center", fontWeight:700 }}>{row.position}</div>
+                                <div style={{ display:"flex", alignItems:"center", gap:8, flex:1 }}>
+                                  <div style={{ fontSize:18 }}>{FLAGS[row.team.name]||"🏳️"}</div>
+                                  <div style={{ fontWeight: row.team.name===selectedTeam?700:500 }}>{row.team.name}</div>
+                                </div>
+                                <div style={{ width:80, textAlign:"right", color:"#6b7280" }}>{row.playedGames} pj</div>
+                                <div style={{ width:70, textAlign:"right", fontWeight:700 }}>{row.points} pts</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               );
