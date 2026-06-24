@@ -388,11 +388,7 @@ export default function App() {
     let mounted = true;
     async function fetchMatches() {
       try {
-        const key = import.meta.env.VITE_FOOTBALL_API_KEY;
-        if (!key) throw new Error('No API key — falta VITE_FOOTBALL_API_KEY en .env');
-        const res = await fetch('/api/football/v4/competitions/WC/matches', {
-          headers: { 'X-Auth-Token': key }
-        });
+        const res = await fetch('/api/football/v4/competitions/WC/matches');
         if (!res.ok) {
           let body = '';
           try { body = await res.text(); } catch(_) {}
@@ -526,11 +522,7 @@ export default function App() {
     let mounted = true;
     async function fetchTeams() {
       try {
-        const key = import.meta.env.VITE_FOOTBALL_API_KEY;
-        if (!key) throw new Error('No API key');
-        const res = await fetch('/api/football/v4/competitions/WC/teams', {
-          headers: { 'X-Auth-Token': key }
-        });
+        const res = await fetch('/api/football/v4/competitions/WC/teams');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         const teams = data.teams || [];
@@ -556,11 +548,7 @@ export default function App() {
     let mounted = true;
     async function fetchStandings() {
       try {
-        const key = import.meta.env.VITE_FOOTBALL_API_KEY;
-        if (!key) throw new Error('No API key');
-        const res = await fetch('/api/football/v4/competitions/WC/standings', {
-          headers: { 'X-Auth-Token': key }
-        });
+        const res = await fetch('/api/football/v4/competitions/WC/standings');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         const table = data.standings || [];
@@ -941,7 +929,7 @@ export default function App() {
                     {groupGames.length === 0 ? (
                       <p style={{ fontSize:13, color:"#9ca3af" }}>
                         {apiError
-                          ? "⚠️ No se pudo conectar con la API. Verifica la clave VITE_FOOTBALL_API_KEY."
+                          ? "⚠️ No se pudo cargar los partidos de grupos."
                           : "Sin partidos de grupos disponibles."}
                       </p>
                     ) : groupGames.map((r, i) => {
