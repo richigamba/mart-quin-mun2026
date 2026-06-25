@@ -24,65 +24,28 @@ const FLAGS = {
   "USA":"🇺🇸","Senegal":"🇸🇳","Austria":"🇦🇹","Egipto":"🇪🇬",
 };
 
-// Map common API team names (English) to local Spanish names used in the app
-const TEAM_NAME_MAP = {
-  // Americas
-  "United States":"USA", "USA":"USA",
-  "Mexico":"México",
-  "Canada":"Canadá",
-  "Brazil":"Brasil",
-  "Argentina":"Argentina",
-  "Colombia":"Colombia",
-  "Uruguay":"Uruguay",
-  "Haiti":"Haití",
-  "Curaçao":"Curazao", "Curacao":"Curazao",
-  // Europe
-  "Germany":"Alemania",
-  "France":"Francia",
-  "Spain":"España",
-  "Portugal":"Portugal",
-  "England":"Inglaterra",
-  "Netherlands":"Países Bajos",
-  "Belgium":"Bélgica",
-  "Norway":"Noruega",
-  "Sweden":"Suecia",
-  "Turkey":"Turquía",
-  "Austria":"Austria",
-  // Africa / Asia / Oceania
-  "Morocco":"Marruecos",
-  "Senegal":"Senegal",
-  "Egypt":"Egipto",
-  "DR Congo":"RD Congo",
-  "Ivory Coast":"Costa de Marfil", "Côte d'Ivoire":"Costa de Marfil",
-  "Cape Verde":"Cabo Verde", "Cabo Verde":"Cabo Verde",
-  "South Korea":"Corea del Sur", "Korea Republic":"Corea del Sur",
-  "Japan":"Japón",
-  "Saudi Arabia":"Arabia Saudí",
-  "Australia":"Australia",
-  "Czech Republic":"Chequia",
-  "Republic of Ireland":"Ireland",
-};
-
-// Return a flag element for a team object (from API) or a name string
-function TeamFlag({ team }) {
-  // team can be string name or object { name, crest, crestUrl, tla }
-  if (!team) return <span>🏳️</span>;
-  const name = typeof team === 'string' ? team : (team.name || '');
-  const crest = typeof team === 'object' ? (team.crest || team.crestUrl || team.crestUrl2) : null;
-  if (crest) {
-    return <img src={crest} alt={name} style={{ width:20, height:14, objectFit:'contain' }} />;
-  }
-  if (FLAGS[name]) return <span>{FLAGS[name]}</span>;
-  return <span>🏳️</span>;
-}
-
-
 const ROUND_POINTS = { R32:1, R16:2, QF:4, SF:8, F:16, Champion:32 };
 const ROUND_LABELS = { R32:"16avos de final", R16:"Octavos", QF:"Cuartos", SF:"Semifinal", F:"Final", Champion:"Campeón" };
 
-// No fallback hardcoded results — wrong data is worse than no data.
-// Results come exclusively from the API.
-const FALLBACK_GROUP_RESULTS = [];
+// Group stage results — real data June 23 2026
+// [team1, score1, score2, team2, matchday]
+const GROUP_RESULTS = [
+  ["México",2,0,"Sudáfrica",1],["Corea del Sur",1,0,"Chequia",1],
+  ["México",1,1,"Corea del Sur",2],["Chequia",2,0,"Sudáfrica",2],
+  ["Brasil",1,0,"Marruecos",1],["Marruecos",4,1,"Haití",2],
+  ["Australia",1,2,"Turquía",1],
+  ["Alemania",4,0,"Curazao",1],["Alemania",3,1,"Costa de Marfil",2],
+  ["Países Bajos",2,0,"Túnez",1],["Japón",2,1,"Suecia",1],
+  ["Países Bajos",2,1,"Japón",2],["Suecia",3,0,"Túnez",2],
+  ["Bélgica",1,1,"Egipto",1],["Bélgica",1,1,"Irán",2],
+  ["España",2,0,"Cabo Verde",1],["Uruguay",1,1,"Arabia Saudí",1],
+  ["España",1,0,"Arabia Saudí",2],["Uruguay",2,1,"Cabo Verde",2],
+  ["Francia",4,1,"Irak",1],["Noruega",2,0,"Senegal",1],
+  ["Francia",3,2,"Senegal",2],["Noruega",2,1,"Irak",2],
+  ["Argentina",3,1,"Jordania",1],["Argentina",2,0,"Austria",2],
+  ["Portugal",1,1,"RD Congo",1],["Colombia",3,1,"Uzbekistán",1],
+  ["Inglaterra",4,2,"Croacia",1],
+];
 
 // Bracket: each match has feedA/feedB describing where teams come from (for hover tooltip)
 // home/away are known teams; pendingA/pendingB are possible candidates when TBD
@@ -91,7 +54,7 @@ const INITIAL_BRACKET = {
     { id:"r32-0",  home:"México",       away:"?",          homeScore:null, awayScore:null, winner:null, pendingA:null, pendingB:["3ro Gpo A/B/C/D"] },
     { id:"r32-1",  home:"Canadá",       away:"?",          homeScore:null, awayScore:null, winner:null, pendingA:null, pendingB:["3ro Gpo B/C/D/E"] },
     { id:"r32-2",  home:"Brasil",       away:"Marruecos",  homeScore:null, awayScore:null, winner:null, pendingA:null, pendingB:null },
-    { id:"r32-3",  home:"USA",          away:"?",          homeScore:null, awayScore:null, winner:null, pendingA:null, pendingB:["2do Gpo D"] },
+    { id:"r32-3",  home:"USA",          away:"Australia",  homeScore:null, awayScore:null, winner:null, pendingA:null, pendingB:null },
     { id:"r32-4",  home:"Alemania",     away:"?",          homeScore:null, awayScore:null, winner:null, pendingA:null, pendingB:["3ro Gpo E/F/G"] },
     { id:"r32-5",  home:"Países Bajos", away:"?",          homeScore:null, awayScore:null, winner:null, pendingA:null, pendingB:["3ro Gpo F/G/H"] },
     { id:"r32-6",  home:"Japón",        away:"Bélgica",    homeScore:null, awayScore:null, winner:null, pendingA:null, pendingB:null },
@@ -349,14 +312,6 @@ export default function App() {
   const [tab, setTab] = useState("ranking");
   const [rawBracket, setRawBracket] = useState(INITIAL_BRACKET);
   const [selectedTeam, setSelectedTeam] = useState(null);
-  // Group results state (uses API when available, fallback otherwise)
-  const [groupResults, setGroupResults] = useState(FALLBACK_GROUP_RESULTS);
-  const [lastUpdated, setLastUpdated] = useState(null);
-  const [apiError, setApiError] = useState(false);
-  const [apiErrorMsg, setApiErrorMsg] = useState(null);
-  const [teamsFromApi, setTeamsFromApi] = useState([]);
-  const [standings, setStandings] = useState([]);
-
 
   // Always propagate winners before rendering
   const bracket = propagate(rawBracket);
@@ -383,196 +338,10 @@ export default function App() {
     });
   }
 
-  // Fetch live matches from football-data.org and update group results
-  useEffect(() => {
-    let mounted = true;
-    async function fetchMatches() {
-      try {
-        const res = await fetch('/api/football/v4/competitions/WC/matches');
-        if (!res.ok) {
-          let body = '';
-          try { body = await res.text(); } catch(_) {}
-          throw new Error(`HTTP ${res.status} ${res.statusText}${body ? ': ' + body.slice(0, 200) : ''}`);
-        }
-        const data = await res.json();
-        const matches = data.matches || [];
-
-        function normalizeName(name) {
-          return TEAM_NAME_MAP[name] || name;
-        }
-
-        // Group stage → flat list for groupResults
-        const mapped = matches
-          .filter(m => (m.stage === 'GROUP_STAGE') || (m.group))
-          .map(m => {
-            const home = normalizeName(m.homeTeam?.name || '');
-            const away = normalizeName(m.awayTeam?.name || '');
-            const homeScore = m.score?.fullTime?.home ?? null;
-            const awayScore = m.score?.fullTime?.away ?? null;
-            const matchday = m.matchday ?? 0;
-            return [home, homeScore, awayScore, away, matchday];
-          });
-
-        // Knockout stage → map to our round keys
-        const STAGE_TO_ROUND = {
-          'LAST_32': 'R32', 'LAST_16': 'R16',
-          'QUARTER_FINALS': 'QF', 'SEMI_FINALS': 'SF', 'FINAL': 'F',
-        };
-        const knockoutMatches = matches
-          .filter(m => STAGE_TO_ROUND[m.stage])
-          .map(m => ({
-            round: STAGE_TO_ROUND[m.stage],
-            home: normalizeName(m.homeTeam?.name || ''),
-            away: normalizeName(m.awayTeam?.name || ''),
-            homeScore: m.score?.fullTime?.home ?? null,
-            awayScore: m.score?.fullTime?.away ?? null,
-          }))
-          .filter(m => m.home && m.away);
-
-        if (mounted && (mapped.length > 0 || knockoutMatches.length > 0)) {
-          if (mapped.length > 0) setGroupResults(mapped);
-          setLastUpdated(new Date().toISOString());
-          setApiError(false);
-          setApiErrorMsg(null);
-
-          setRawBracket(prev => {
-            const b = JSON.parse(JSON.stringify(prev));
-
-            // Helper: apply scores and winner to a slot
-            function applyScores(slot, home, away, homeScore, awayScore) {
-              if (slot.home === home) {
-                slot.homeScore = homeScore;
-                slot.awayScore = awayScore;
-              } else {
-                slot.homeScore = awayScore;
-                slot.awayScore = homeScore;
-              }
-              if (slot.homeScore != null && slot.awayScore != null) {
-                if (slot.homeScore > slot.awayScore) slot.winner = slot.home;
-                else if (slot.awayScore > slot.homeScore) slot.winner = slot.away;
-                else slot.winner = null;
-              }
-            }
-
-            // 1. Update bracket from knockout API matches
-            knockoutMatches.forEach(({ round, home, away, homeScore, awayScore }) => {
-              const slots = b[round] || [];
-
-              // a) Exact match — both teams already correct
-              let slot = slots.find(s =>
-                (s.home === home && s.away === away) ||
-                (s.home === away && s.away === home)
-              );
-
-              // b) One team is "?" — fill it in
-              if (!slot) {
-                slot = slots.find(s =>
-                  (s.home === home && s.away === '?') || (s.home === '?' && s.away === home) ||
-                  (s.home === away && s.away === '?') || (s.home === '?' && s.away === away)
-                );
-                if (slot) {
-                  if (slot.home === '?') slot.home = slot.away === home ? away : home;
-                  else if (slot.away === '?') slot.away = slot.home === home ? away : home;
-                }
-              }
-
-              // c) One team matches but the other was wrong (e.g. Australia replaced by real qualifier)
-              if (!slot) {
-                slot = slots.find(s => s.home === home || s.away === home || s.home === away || s.away === away);
-                if (slot) {
-                  // Rewrite the slot with real API teams, preserving home/away order
-                  if (slot.home === home || slot.home === away) {
-                    slot.home = (slot.home === home) ? home : away;
-                    slot.away = (slot.home === home) ? away : home;
-                  } else {
-                    slot.away = (slot.away === home) ? home : away;
-                    slot.home = (slot.away === home) ? away : home;
-                  }
-                }
-              }
-
-              if (slot) applyScores(slot, home, away, homeScore, awayScore);
-            });
-
-            // Group stage results never update the knockout bracket —
-            // the same two teams can meet in both phases (e.g. same group) and
-            // applying a group result to a bracket slot causes false eliminations.
-
-            return b;
-          });
-        }
-      } catch (err) {
-        console.warn('Football API error', err);
-        if (mounted) {
-          setApiError(true);
-          setApiErrorMsg(err.message);
-        }
-      }
-    }
-
-    // Initial fetch
-    fetchMatches();
-    // Refresh every 5 minutes
-    const id = setInterval(fetchMatches, 5 * 60 * 1000);
-    return () => { mounted = false; clearInterval(id); };
-  }, []);
-
-  // Fetch teams list from API to populate `allTeams` and ensure flags exist
-  useEffect(() => {
-    let mounted = true;
-    async function fetchTeams() {
-      try {
-        const res = await fetch('/api/football/v4/competitions/WC/teams');
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
-        const teams = data.teams || [];
-        const mapped = teams.map(t => TEAM_NAME_MAP[t.name] || t.name);
-        // mutate FLAGS for missing teams to a neutral flag so UI shows something
-        teams.forEach((t, i) => {
-          const localName = TEAM_NAME_MAP[t.name] || t.name;
-          if (!FLAGS[localName]) {
-            // fallback to white flag; later we could map from country codes
-            FLAGS[localName] = '🏳️';
-          }
-        });
-        if (mounted) setTeamsFromApi([...new Set(mapped)]);
-      } catch (err) {
-        console.warn('Football teams API error', err);
-      }
-    }
-    fetchTeams();
-  }, []);
-
-  // Fetch standings (group tables) from API
-  useEffect(() => {
-    let mounted = true;
-    async function fetchStandings() {
-      try {
-        const res = await fetch('/api/football/v4/competitions/WC/standings');
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
-        const table = data.standings || [];
-        // Normalize team names in table
-        const normalized = table.map(group => ({
-          ...group,
-          table: group.table.map(row => ({
-            ...row,
-            team: { ...row.team, name: TEAM_NAME_MAP[row.team.name] || row.team.name }
-          }))
-        }));
-        if (mounted) setStandings(normalized);
-      } catch (err) {
-        console.warn('Football standings API error', err);
-      }
-    }
-    fetchStandings();
-  }, []);
-
-  const allTeams = teamsFromApi.length ? teamsFromApi : PARTICIPANTS.flatMap(p => p.teams);
+  const allTeams = PARTICIPANTS.flatMap(p => p.teams);
   const tabs = [
     { id:"ranking",       label:"🏆 Ranking" },
     { id:"bracket",       label:"🗓️ Bracket" },
-    { id:"grupos",        label:"🌍 Grupos" },
     { id:"equipos",       label:"🔍 Equipos" },
     { id:"predicciones",  label:"✏️ Predicciones" },
   ];
@@ -586,19 +355,7 @@ export default function App() {
           FIFA World Cup 2026™
         </div>
         <h1 style={{ margin:"0 0 4px", fontSize:24, fontWeight:700, color:"#fff" }}>⚽ Quiniela del Mundial</h1>
-        <p style={{ margin:"0 0 16px", color:"#a7f3d0", fontSize:13 }}>
-          10 participantes · hover en ❓ para ver posibles rivales
-          {lastUpdated && (
-            <span style={{ marginLeft:10, fontSize:12, color:"#bbf7d0" }}>
-              Última actualización: {new Date(lastUpdated).toLocaleString()}
-            </span>
-          )}
-          {apiError && (
-            <span style={{ marginLeft:8, fontSize:12, color:"#fca5a5" }}>
-              ⚠️ Error API: {apiErrorMsg || "error desconocido"}
-            </span>
-          )}
-        </p>
+        <p style={{ margin:"0 0 16px", color:"#a7f3d0", fontSize:13 }}>10 participantes · hover en ❓ para ver posibles rivales</p>
         <div style={{ display:"flex", gap:4, justifyContent:"center", overflowX:"auto" }}>
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
@@ -706,131 +463,12 @@ export default function App() {
           </div>
         )}
 
-        {/* ── GRUPOS ── */}
-        {tab === "grupos" && (
-          <div>
-            <h2 style={{ fontSize:17, fontWeight:600, color:"#111", margin:"0 0 4px" }}>Fase de grupos</h2>
-            <p style={{ fontSize:13, color:"#6b7280", margin:"0 0 20px" }}>
-              Resultados y tablas de todos los grupos del Mundial 2026.
-            </p>
-
-            {standings.length === 0 ? (
-              <div style={{ textAlign:"center", padding:40, color:"#9ca3af", fontSize:14,
-                background:"#fff", border:"1px dashed #d1d5db", borderRadius:12 }}>
-                {apiError ? "⚠️ No se pudo cargar la información de grupos." : "Cargando grupos..."}
-              </div>
-            ) : standings.map(grp => {
-              const groupLabel = grp.group || grp.stage || "Grupo";
-              // Get all matches for this group (teams in the table)
-              const groupTeamNames = grp.table.map(row => row.team.name);
-              const grpMatches = groupResults.filter(r =>
-                groupTeamNames.includes(r[0]) && groupTeamNames.includes(r[3])
-              );
-
-              return (
-                <div key={groupLabel} style={{ marginBottom:28 }}>
-                  {/* Group header */}
-                  <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-                    <span style={{ background:"#065f46", color:"#fff", fontSize:11, fontWeight:600, padding:"3px 14px", borderRadius:20 }}>
-                      {groupLabel}
-                    </span>
-                    <div style={{ flex:1, height:1, background:"#e5e7eb" }}/>
-                  </div>
-
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-                    {/* Standings table */}
-                    <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:10, overflow:"hidden" }}>
-                      <div style={{ display:"grid", gridTemplateColumns:"28px 1fr 32px 80px 32px", alignItems:"center",
-                        padding:"7px 12px", background:"#f9fafb", fontSize:11, color:"#6b7280", fontWeight:700 }}>
-                        <div style={{ textAlign:"center" }}>#</div>
-                        <div>Equipo</div>
-                        <div style={{ textAlign:"center" }}>PJ</div>
-                        <div style={{ textAlign:"center" }}>G / E / P</div>
-                        <div style={{ textAlign:"center" }}>Pts</div>
-                      </div>
-                      {grp.table.map((row, idx) => {
-                        const teamName = row.team.name;
-                        const participant = getParticipant(teamName);
-                        const isTop2 = row.position <= 2;
-                        return (
-                          <div key={row.team.id} style={{
-                            display:"grid", gridTemplateColumns:"28px 1fr 32px 80px 32px",
-                            alignItems:"center", padding:"8px 12px",
-                            borderBottom: idx < grp.table.length - 1 ? "1px solid #f3f4f6" : "none",
-                            background: isTop2 ? "#f0fdf4" : "#fff",
-                          }}>
-                            <div style={{ textAlign:"center", fontWeight:700, fontSize:12,
-                              color: isTop2 ? "#16a34a" : "#9ca3af" }}>{row.position}</div>
-                            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                              <TeamFlag team={row.team} />
-                              <span style={{ fontSize:12, fontWeight: participant ? 600 : 400 }}>{teamName}</span>
-                              {participant && (
-                                <span style={{ fontSize:10, background:participant.light, color:participant.color,
-                                  padding:"1px 6px", borderRadius:8, fontWeight:600 }}>
-                                  {participant.name}
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ textAlign:"center", fontSize:12, color:"#6b7280" }}>{row.playedGames}</div>
-                            <div style={{ textAlign:"center", fontSize:12, fontWeight:600 }}>
-                              {row.won} / {row.draw} / {row.lost}
-                            </div>
-                            <div style={{ textAlign:"center", fontSize:13, fontWeight:700,
-                              color: isTop2 ? "#065f46" : "#374151" }}>{row.points}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Match results */}
-                    <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:10, overflow:"hidden" }}>
-                      {grpMatches.length === 0 ? (
-                        <div style={{ padding:16, fontSize:12, color:"#9ca3af", textAlign:"center" }}>
-                          Sin partidos disponibles
-                        </div>
-                      ) : grpMatches.map((r, i) => {
-                        const played = r[1] !== null && r[2] !== null;
-                        const homeWin = played && r[1] > r[2];
-                        const awayWin = played && r[2] > r[1];
-                        return (
-                          <div key={i} style={{
-                            display:"grid", gridTemplateColumns:"1fr auto 1fr",
-                            alignItems:"center", padding:"8px 12px", gap:8,
-                            borderBottom: i < grpMatches.length - 1 ? "1px solid #f3f4f6" : "none",
-                          }}>
-                            <div style={{ display:"flex", alignItems:"center", gap:5, justifyContent:"flex-end" }}>
-                              <span style={{ fontSize:12, fontWeight: homeWin ? 700 : 400, color: homeWin?"#111":"#6b7280" }}>
-                                {r[0]}
-                              </span>
-                              <TeamFlag team={{ name: r[0] }} />
-                            </div>
-                            <div style={{ textAlign:"center", fontSize:13, fontWeight:700,
-                              color:"#374151", minWidth:40 }}>
-                              {played ? `${r[1]} - ${r[2]}` : <span style={{ color:"#d1d5db" }}>vs</span>}
-                            </div>
-                            <div style={{ display:"flex", alignItems:"center", gap:5 }}>
-                              <TeamFlag team={{ name: r[3] }} />
-                              <span style={{ fontSize:12, fontWeight: awayWin ? 700 : 400, color: awayWin?"#111":"#6b7280" }}>
-                                {r[3]}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
         {/* ── EQUIPOS ── */}
         {tab === "equipos" && (
           <div>
             <h2 style={{ fontSize:17, fontWeight:600, color:"#111", margin:"0 0 16px" }}>Seguimiento por equipo</h2>
             <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:20 }}>
-              {PARTICIPANTS.flatMap(p => p.teams).map(team => {
+              {allTeams.map(team => {
                 const p = getParticipant(team);
                 return (
                   <button key={team} onClick={() => setSelectedTeam(selectedTeam===team?null:team)} style={{
@@ -840,7 +478,7 @@ export default function App() {
                     background: selectedTeam===team ? p.light : "#fff",
                     color: p.color,
                   }}>
-                    <span style={{ fontSize:18 }}>{FLAGS[team]||"🏳️"}</span>{team}
+                    <span style={{ fontSize:18 }}>{FLAGS[team]}</span>{team}
                   </button>
                 );
               })}
@@ -868,7 +506,7 @@ export default function App() {
                   }
                 }
               }
-              const groupGames = groupResults.filter(r => r[0]===selectedTeam || r[3]===selectedTeam);
+              const groupGames = GROUP_RESULTS.filter(r => r[0]===selectedTeam || r[2]===selectedTeam);
 
               return (
                 <div style={{ background:"#fff", border:`2px solid ${p.color}`, borderRadius:14, padding:20 }}>
@@ -884,11 +522,11 @@ export default function App() {
                           <span style={{ background:"#fee2e2", color:"#dc2626", padding:"3px 10px", borderRadius:20, fontSize:12, fontWeight:600 }}>
                             ❌ Eliminado en {ROUND_LABELS[eliminated.round]} vs {eliminated.against}
                           </span>
-                        ) : (
+                        ) : teamMatches.length > 0 ? (
                           <span style={{ background:"#dcfce7", color:"#16a34a", padding:"3px 10px", borderRadius:20, fontSize:12, fontWeight:600 }}>
                             ✅ En competencia
                           </span>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                     <div style={{ textAlign:"right" }}>
@@ -918,7 +556,6 @@ export default function App() {
                             <span style={{ fontWeight: m.away===selectedTeam?700:400 }}>{m.away} {FLAGS[m.away]||"🏳️"}</span>
                           </span>
                           {won && <span style={{ fontSize:12, color:"#16a34a", fontWeight:600 }}>+{ROUND_POINTS[m.round]} pts</span>}
-                          {lost && <span style={{ fontSize:12, color:"#dc2626", fontWeight:600 }}>❌ Eliminado</span>}
                         </div>
                       );
                     })}
@@ -927,80 +564,25 @@ export default function App() {
                   <div style={{ borderTop:"1px solid #f3f4f6", paddingTop:14, marginTop:4 }}>
                     <div style={{ fontSize:13, fontWeight:600, color:"#374151", marginBottom:10 }}>Fase de grupos</div>
                     {groupGames.length === 0 ? (
-                      <p style={{ fontSize:13, color:"#9ca3af" }}>
-                        {apiError
-                          ? "⚠️ No se pudo cargar los partidos de grupos."
-                          : "Sin partidos de grupos disponibles."}
-                      </p>
+                      <p style={{ fontSize:13, color:"#9ca3af" }}>Sin resultados de grupos registrados.</p>
                     ) : groupGames.map((r, i) => {
-                      const isHome = r[0] === selectedTeam;
-                      // r format: [team1, score1, score2, team2, matchday]
-                      const myScore = isHome ? r[1] : r[2];
-                      const oppScore = isHome ? r[2] : r[1];
-                      const opp = isHome ? r[3] : r[0];
-                      const played = myScore !== null && oppScore !== null;
-                      const res = !played ? null : myScore > oppScore ? "V" : myScore < oppScore ? "D" : "E";
-                      const resLabel = res === "V" ? "Victoria" : res === "D" ? "Derrota" : res === "E" ? "Empate" : "Pendiente";
+                      const isHome = r[0]===selectedTeam;
+                      const myScore = isHome?r[1]:r[3], oppScore = isHome?r[3]:r[1];
+                      const opp = isHome?r[2]:r[0];
+                      const res = myScore>oppScore?"V":myScore<oppScore?"D":"E";
                       return (
-                        <div key={i} style={{
-                          display:"grid", gridTemplateColumns:"auto 1fr auto",
-                          alignItems:"center", gap:10, padding:"10px 0",
-                          borderBottom: i < groupGames.length - 1 ? "1px solid #f3f4f6" : "none",
-                        }}>
+                        <div key={i} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderBottom:"1px solid #f9fafb" }}>
                           <span style={{
-                            background: res === "V" ? "#dcfce7" : res === "D" ? "#fee2e2" : res === "E" ? "#fef9c3" : "#f3f4f6",
-                            color: res === "V" ? "#16a34a" : res === "D" ? "#dc2626" : res === "E" ? "#ca8a04" : "#9ca3af",
-                            fontWeight:700, fontSize:11, padding:"4px 8px", borderRadius:999,
-                            textAlign:"center", minWidth:32,
-                          }}>{res ?? "–"}</span>
-                          <div style={{ minWidth:0 }}>
-                            <div style={{ display:"flex", flexWrap:"wrap", gap:8, alignItems:"center", fontSize:13, color:"#111" }}>
-                              <span style={{ fontWeight:700 }}>{FLAGS[selectedTeam]||"🏳️"} {selectedTeam}</span>
-                              <span style={{ fontSize:12, color:"#6b7280" }}>{resLabel}</span>
-                            </div>
-                            <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginTop:4, color:"#374151", fontSize:13 }}>
-                              {played
-                                ? <span style={{ fontWeight:700 }}>{myScore} - {oppScore}</span>
-                                : <span style={{ color:"#9ca3af" }}>Por jugarse</span>}
-                              <span>vs {FLAGS[opp]||"🏳️"} {opp}</span>
-                            </div>
-                          </div>
-                          <span style={{ fontSize:11, color:"#9ca3af", whiteSpace:"nowrap" }}>J{r[4]}</span>
+                            background: res==="V"?"#dcfce7": res==="D"?"#fee2e2":"#fef9c3",
+                            color: res==="V"?"#16a34a": res==="D"?"#dc2626":"#ca8a04",
+                            fontWeight:700, fontSize:11, padding:"1px 7px", borderRadius:10, minWidth:22, textAlign:"center",
+                          }}>{res}</span>
+                          <span style={{ fontSize:13 }}>vs {FLAGS[opp]||"🏳️"} {opp}</span>
+                          <span style={{ fontWeight:700, fontSize:13, marginLeft:"auto" }}>{myScore} - {oppScore}</span>
+                          <span style={{ fontSize:11, color:"#9ca3af" }}>J{r[4]}</span>
                         </div>
                       );
                     })}
-                    {/* Standings for the selected team's group */}
-                    {standings.length > 0 && (() => {
-                      // find the group that contains the selectedTeam
-                      const grp = standings.find(g => g.table.some(row => (TEAM_NAME_MAP[row.team.name] || row.team.name) === selectedTeam));
-                      if (!grp) return null;
-                      return (
-                        <div style={{ marginTop:12, borderTop:"1px solid #f3f4f6", paddingTop:12 }}>
-                          <div style={{ fontSize:13, fontWeight:600, color:"#374151", marginBottom:8 }}>Tabla - {grp.group || grp.stage}</div>
-                            <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:8, overflow:"hidden" }}>
-                            <div style={{ display:"grid", gridTemplateColumns:"36px 1fr 60px 80px 60px", gap:0, alignItems:"center", padding:"8px 12px", background:"#f9fafb", fontSize:12, color:"#6b7280", fontWeight:700 }}>
-                              <div style={{ textAlign:"center" }}>Pos</div>
-                              <div>Equipo</div>
-                              <div style={{ textAlign:"right" }}>PJ</div>
-                              <div style={{ textAlign:"right" }}>W / D / L</div>
-                              <div style={{ textAlign:"right" }}>Pts</div>
-                            </div>
-                            {grp.table.map((row, idx) => (
-                              <div key={row.team.id} style={{ display:"grid", gridTemplateColumns:"36px 1fr 60px 80px 60px", gap:0, alignItems:"center", padding:"8px 12px", borderBottom: idx<grp.table.length-1?"1px solid #f3f4f6":"none" }}>
-                                <div style={{ textAlign:"center", fontWeight:700 }}>{row.position}</div>
-                                <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                                  <div style={{ width:22, height:16 }}>{/* flag */}<TeamFlag team={row.team} /></div>
-                                  <div style={{ fontWeight: row.team.name===selectedTeam?700:500 }}>{row.team.name}</div>
-                                </div>
-                                <div style={{ textAlign:"right", color:"#6b7280" }}>{row.playedGames}</div>
-                                <div style={{ textAlign:"right", fontWeight:700 }}>{row.won} / {row.draw} / {row.lost} <span style={{ marginLeft:8, color:"#6b7280" }}>({row.goalsFor}-{row.goalsAgainst} GD:{row.goalDifference})</span></div>
-                                <div style={{ textAlign:"right", fontWeight:700 }}>{row.points}</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })()}
                   </div>
                 </div>
               );
@@ -1053,6 +635,7 @@ export default function App() {
                               <div style={{ fontWeight:600, fontSize:14, color: match.home==="?"?"#9ca3af":"#111" }}>
                                 {match.home==="?" ? "Por definirse" : match.home}
                               </div>
+                              {hp && <div style={{ fontSize:11, color:hp.color }}>{hp.name}</div>}
                             </div>
                           </div>
                           {/* Scores */}
@@ -1079,6 +662,7 @@ export default function App() {
                               <div style={{ fontWeight:600, fontSize:14, color: match.away==="?"?"#9ca3af":"#111" }}>
                                 {match.away==="?" ? "Por definirse" : match.away}
                               </div>
+                              {ap && <div style={{ fontSize:11, color:ap.color }}>{ap.name}</div>}
                             </div>
                             <span style={{ fontSize:22 }}>{FLAGS[match.away]||"❓"}</span>
                           </div>
