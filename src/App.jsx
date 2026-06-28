@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
 // ── CONFIGURACIÓN ─────────────────────────────────────────────────────────────
-const API_KEY = import.meta.env.VITE_RAPIDAPI_KEY || "";
-const API_HOST = "v3.football.api-sports.io";
 const LEAGUE = 1;
 const SEASON = 2026;
 
@@ -66,11 +64,8 @@ function getParticipant(apiName) {
   );
 }
 
-async function apiFetch(endpoint) {
-  const url = `https://${API_HOST}/v3/${endpoint}`;
-  const res = await fetch(url, {
-    headers: { "x-apisports-key": API_KEY },
-  });
+async function apiFetch(route) {
+  const res = await fetch(`/api/${route}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   if (data.errors && Object.keys(data.errors).length > 0) {
@@ -202,16 +197,11 @@ export default function App() {
 
   // Cargar datos de la API
   const loadData = useCallback(async () => {
-    if (!API_KEY) {
-      setError("Falta la API key. Agrega VITE_RAPIDAPI_KEY en tu archivo .env");
-      setLoading(false);
-      return;
-    }
     try {
       setError(null);
 
       // 1. Todos los partidos del torneo
-      const fixtures = await apiFetch(`fixtures?league=${LEAGUE}&season=${SEASON}`);
+      const fixtures = await apiFetch("fixtures");
 
       const group = [];
       const knockout = [];
@@ -269,7 +259,7 @@ export default function App() {
 
       // 2. Standings (tabla de grupos)
       try {
-        const st = await apiFetch(`standings?league=${LEAGUE}&season=${SEASON}`);
+        const st = await apiFetch("standings");
         if (st && st[0]) {
           setStandings(st[0].league.standings || []);
         }
