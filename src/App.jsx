@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 
 // ── CONFIGURACIÓN ─────────────────────────────────────────────────────────────
 const API_KEY = import.meta.env.VITE_RAPIDAPI_KEY || "";
-const API_HOST = "api-football-v1.p.rapidapi.com";
+const API_HOST = "v3.football.api-sports.io";
 const LEAGUE = 1;
 const SEASON = 2026;
 
@@ -69,7 +69,7 @@ function getParticipant(apiName) {
 async function apiFetch(endpoint) {
   const url = `https://${API_HOST}/v3/${endpoint}`;
   const res = await fetch(url, {
-    headers: { "x-rapidapi-key": API_KEY, "x-rapidapi-host": API_HOST },
+    headers: { "x-apisports-key": API_KEY },
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
