@@ -450,7 +450,7 @@ export default function App() {
                                     <span style={{ fontWeight: isW ? 700 : 400, color: isW?"#111":"#374151" }}>
                                       {display(side.team)}
                                     </span>
-                                    {p && <span style={{ width:6,height:6,borderRadius:"50%",background:p.color,display:"inline-block" }}/>}
+                                    {p && <span title={p.name} style={{ width:6,height:6,borderRadius:"50%",background:p.color,display:"inline-block",cursor:"help" }}/>}
                                   </span>
                                   <span style={{ fontWeight:700, fontSize:15, color: isW?"#111":"#9ca3af" }}>
                                     {side.score ?? ""}
