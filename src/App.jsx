@@ -285,6 +285,16 @@ export default function App() {
     .map(p => ({ ...p, score: scores[p.name] }))
     .sort((a, b) => b.score - a.score);
 
+  // Teams that lost a knockout match
+  const eliminatedTeams = new Set();
+  knockoutMatches.forEach(m => {
+    if (m.winner) {
+      if (m.home !== m.winner) eliminatedTeams.add(m.home);
+      if (m.away !== m.winner) eliminatedTeams.add(m.away);
+    }
+  });
+  const groupStageOver = qualifiedTeams.length > 0;
+
   // Partidos de grupos por letra de grupo
   const groupedMatches = {};
   groupMatches.forEach(m => {
@@ -382,16 +392,26 @@ export default function App() {
                     <div style={{ flex:1 }}>
                       <div style={{ fontWeight:600, fontSize:15, color:"#111" }}>{p.name}</div>
                       <div style={{ display:"flex", gap:6, marginTop:4, flexWrap:"wrap" }}>
-                        {p.teams.map(t => (
-                          <span key={t} style={{
-                            display:"inline-flex", alignItems:"center", gap:4,
-                            background:p.light, color:p.color, border:`1px solid ${p.color}44`,
-                            borderRadius:12, padding:"2px 8px", fontSize:12, fontWeight:500,
-                          }}>
-                            {flag(t)} {display(t)}
-                            {qualifiedTeams.includes(t) && <span style={{ color:"#16a34a", fontSize:10 }}>✓</span>}
-                          </span>
-                        ))}
+                        {p.teams.map(t => {
+                          const isEliminated = eliminatedTeams.has(t) || (groupStageOver && !qualifiedTeams.includes(t));
+                          return (
+                            <span key={t} style={{
+                              display:"inline-flex", alignItems:"center", gap:4,
+                              background: isEliminated ? "#f3f4f6" : p.light,
+                              color: isEliminated ? "#9ca3af" : p.color,
+                              border: `1px solid ${isEliminated ? "#e5e7eb" : p.color+"44"}`,
+                              borderRadius:12, padding:"2px 8px", fontSize:12, fontWeight:500,
+                              opacity: isEliminated ? 0.65 : 1,
+                              textDecoration: isEliminated ? "line-through" : "none",
+                            }}>
+                              {flag(t)} {display(t)}
+                              {isEliminated
+                                ? <span style={{ color:"#dc2626", fontSize:10, fontWeight:700, textDecoration:"none" }}>✕</span>
+                                : qualifiedTeams.includes(t) && <span style={{ color:"#16a34a", fontSize:10 }}>✓</span>
+                              }
+                            </span>
+                          );
+                        })}
                       </div>
                     </div>
                     <div style={{ textAlign:"right" }}>
@@ -568,15 +588,21 @@ export default function App() {
                   {allOurTeams.map(team => {
                     const p = getParticipant(team);
                     const isQualified = qualifiedTeams.includes(team);
+                    const isEliminated = eliminatedTeams.has(team) || (groupStageOver && !isQualified);
                     return (
                       <button key={team} onClick={() => setSelectedTeam(selectedTeam===team ? null : team)} style={{
                         display:"flex", alignItems:"center", gap:6, padding:"7px 13px",
-                        border:`2px solid ${selectedTeam===team ? p.color : p.color+"44"}`,
+                        border:`2px solid ${selectedTeam===team ? (isEliminated ? "#9ca3af" : p.color) : (isEliminated ? "#e5e7eb" : p.color+"44")}`,
                         borderRadius:20, cursor:"pointer", fontSize:13, fontWeight:500,
-                        background: selectedTeam===team ? p.light : "#fff", color:p.color,
+                        background: selectedTeam===team ? (isEliminated ? "#f3f4f6" : p.light) : "#fff",
+                        color: isEliminated ? "#9ca3af" : p.color,
+                        opacity: isEliminated ? 0.65 : 1,
                       }}>
                         {flag(team)} {display(team)}
-                        {isQualified && <span style={{ fontSize:10, color:"#16a34a" }}>✓</span>}
+                        {isEliminated
+                          ? <span style={{ fontSize:10, color:"#dc2626", fontWeight:700 }}>✕</span>
+                          : isQualified && <span style={{ fontSize:10, color:"#16a34a" }}>✓</span>
+                        }
                       </button>
                     );
                   })}
