@@ -93,12 +93,22 @@ function getWinner(game) {
   const as = parseInt(game.away_score, 10);
   if (hs > as) return game.home_team_name_en || null;
   if (as > hs) return game.away_team_name_en || null;
+  // Tied after regular/extra time — check penalty shootout
+  const hp = parseInt(game.home_penalty_score, 10);
+  const ap = parseInt(game.away_penalty_score, 10);
+  if (!isNaN(hp) && !isNaN(ap) && hp !== ap) {
+    if (hp > ap) return game.home_team_name_en || null;
+    if (ap > hp) return game.away_team_name_en || null;
+  }
   return null;
 }
 
 function transformGame(game) {
   const status = getStatus(game);
   const active = status !== "NS";
+  const hp = parseInt(game.home_penalty_score, 10);
+  const ap = parseInt(game.away_penalty_score, 10);
+  const hasPenalties = !isNaN(hp) && !isNaN(ap) && hp !== ap;
   return {
     id: game.id,
     date: parseLocalDate(game.local_date),
@@ -109,6 +119,8 @@ function transformGame(game) {
     away: game.away_team_name_en || game.away_team_label || "?",
     homeScore: active ? parseInt(game.home_score, 10) : null,
     awayScore: active ? parseInt(game.away_score, 10) : null,
+    homePenScore: hasPenalties ? hp : null,
+    awayPenScore: hasPenalties ? ap : null,
     winner: getWinner(game),
   };
 }
@@ -168,9 +180,16 @@ function MatchRow({ match, compact = false }) {
       {/* Score */}
       <div style={{ minWidth:60, textAlign:"center" }}>
         {hasScore ? (
-          <span style={{ fontWeight:700, fontSize:15 }}>
-            {match.homeScore} - {match.awayScore}
-          </span>
+          <>
+            <span style={{ fontWeight:700, fontSize:15 }}>
+              {match.homeScore} - {match.awayScore}
+            </span>
+            {match.homePenScore !== null && (
+              <div style={{ fontSize:10, color:"#6b7280", marginTop:1 }}>
+                pen {match.homePenScore}-{match.awayPenScore}
+              </div>
+            )}
+          </>
         ) : (
           <span style={{ fontSize:11, color:"#9ca3af" }}>
             {match.date ? match.date.toLocaleDateString("es-MX", { month:"short", day:"numeric" }) : "vs"}
@@ -457,7 +476,10 @@ export default function App() {
                             background:"#fff", border:"1px solid #e5e7eb", borderRadius:10, padding:"8px 10px",
                             boxShadow: m.winner ? "0 1px 6px rgba(0,0,0,0.06)" : "none",
                           }}>
-                            {[{team:m.home, score:m.homeScore},{team:m.away, score:m.awayScore}].map((side, si) => {
+                            {[
+                              {team:m.home, score:m.homeScore, penScore:m.homePenScore},
+                              {team:m.away, score:m.awayScore, penScore:m.awayPenScore},
+                            ].map((side, si) => {
                               const p = getParticipant(side.team);
                               const isW = m.winner === side.team;
                               return (
@@ -472,8 +494,13 @@ export default function App() {
                                     </span>
                                     {p && <span title={p.name} style={{ width:6,height:6,borderRadius:"50%",background:p.color,display:"inline-block",cursor:"help" }}/>}
                                   </span>
-                                  <span style={{ fontWeight:700, fontSize:15, color: isW?"#111":"#9ca3af" }}>
-                                    {side.score ?? ""}
+                                  <span style={{ display:"flex", alignItems:"center", gap:4 }}>
+                                    <span style={{ fontWeight:700, fontSize:15, color: isW?"#111":"#9ca3af" }}>
+                                      {side.score ?? ""}
+                                    </span>
+                                    {side.penScore !== null && (
+                                      <span style={{ fontSize:10, color:"#6b7280" }}>({side.penScore})</span>
+                                    )}
                                   </span>
                                 </div>
                               );
