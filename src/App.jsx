@@ -63,6 +63,17 @@ const ROUND_POINTS = {
   final: 32,   // campeón (adicionales al ganar la Final)
 };
 
+// Horas a sumar a la hora local del estadio para obtener la hora de Ciudad de México.
+// México no observa horario de verano (UTC-6 todo el año); EU/Canadá sí lo observan en junio-julio 2026.
+const STADIUM_MX_OFFSET = {
+  "1": 0, "2": 0, "3": 0,                                  // Estadios en México
+  "4": -1, "5": -1, "6": -1,                                // Central (EU)
+  "7": -2, "8": -2, "9": -2, "10": -2, "11": -2, "12": -2,  // Eastern (EU/Canadá)
+  "13": 1, "14": 1, "15": 1, "16": 1,                       // Western (EU/Canadá)
+};
+
+const MONTHS_ES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function display(name) { return TEAM_DISPLAY[name] || name; }
 function flag(name) { return FLAGS[name] || "🏳️"; }
@@ -71,13 +82,31 @@ function getParticipant(teamName) {
   return PARTICIPANTS.find(p => p.teams.includes(teamName)) || null;
 }
 
+// Parsea "06/13/2026 21:00" (hora local del estadio) guardando los componentes
+// en los campos UTC de un Date, para poder desplazarlos sin que el timezone
+// del navegador interfiera.
 function parseLocalDate(str) {
   if (!str) return null;
-  // Format: "06/13/2026 21:00"
   const [datePart, timePart] = str.split(" ");
   if (!datePart) return null;
   const [mm, dd, yyyy] = datePart.split("/");
-  return new Date(`${yyyy}-${mm}-${dd}T${timePart || "00:00"}:00`);
+  const [hh, min] = (timePart || "00:00").split(":");
+  return new Date(Date.UTC(parseInt(yyyy, 10), parseInt(mm, 10) - 1, parseInt(dd, 10), parseInt(hh, 10), parseInt(min, 10)));
+}
+
+function toMexicoDate(venueDate, stadiumId) {
+  if (!venueDate) return null;
+  const offset = STADIUM_MX_OFFSET[stadiumId] ?? 0;
+  return new Date(venueDate.getTime() + offset * 3600000);
+}
+
+function formatMxDateTime(d) {
+  if (!d) return "";
+  const day = d.getUTCDate();
+  const month = MONTHS_ES[d.getUTCMonth()];
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${day} ${month} · ${hh}:${mm} hrs`;
 }
 
 function getStatus(game) {
@@ -111,7 +140,7 @@ function transformGame(game) {
   const hasPenalties = !isNaN(hp) && !isNaN(ap) && hp !== ap;
   return {
     id: game.id,
-    date: parseLocalDate(game.local_date),
+    date: toMexicoDate(parseLocalDate(game.local_date), game.stadium_id),
     type: game.type,
     group: game.group,
     status,
@@ -178,7 +207,7 @@ function MatchRow({ match, compact = false }) {
         <span style={{ fontSize:16 }}>{flag(match.home)}</span>
       </div>
       {/* Score */}
-      <div style={{ minWidth:60, textAlign:"center" }}>
+      <div style={{ minWidth:70, textAlign:"center" }}>
         {hasScore ? (
           <>
             <span style={{ fontWeight:700, fontSize:15 }}>
@@ -191,11 +220,14 @@ function MatchRow({ match, compact = false }) {
             )}
           </>
         ) : (
-          <span style={{ fontSize:11, color:"#9ca3af" }}>
-            {match.date ? match.date.toLocaleDateString("es-MX", { month:"short", day:"numeric" }) : "vs"}
-          </span>
+          <span style={{ fontSize:11, color:"#9ca3af" }}>vs</span>
         )}
         <div style={{ marginTop:2 }}><StatusBadge status={match.status}/></div>
+        {match.date && (
+          <div style={{ fontSize:9.5, color:"#9ca3af", marginTop:2, whiteSpace:"nowrap" }}>
+            {formatMxDateTime(match.date)}
+          </div>
+        )}
       </div>
       {/* Away */}
       <div style={{ flex:1, display:"flex", alignItems:"center", gap:6 }}>
@@ -204,6 +236,34 @@ function MatchRow({ match, compact = false }) {
           {display(match.away)}
         </span>
         {ap && <span style={{ width:7, height:7, borderRadius:"50%", background:ap.color }}/>}
+      </div>
+    </div>
+  );
+}
+
+function ChampionScreen({ participant, team, onClose }) {
+  return (
+    <div style={{
+      position:"fixed", inset:0, zIndex:1000, overflowY:"auto",
+      background:`linear-gradient(135deg, ${participant.color} 0%, #111 120%)`,
+      display:"flex", alignItems:"center", justifyContent:"center", padding:20,
+    }}>
+      <div style={{ textAlign:"center", maxWidth:480 }}>
+        <div style={{ fontSize:64, marginBottom:8 }}>🏆</div>
+        <div style={{ fontSize:12, letterSpacing:3, color:"#fff", opacity:0.8, textTransform:"uppercase", marginBottom:10 }}>
+          FIFA World Cup 2026™ · Campeón
+        </div>
+        <div style={{ fontSize:80, marginBottom:10, lineHeight:1 }}>{flag(team)}</div>
+        <h1 style={{ margin:"0 0 18px", fontSize:26, fontWeight:800, color:"#fff", lineHeight:1.3 }}>
+          ¡Felicidades {participant.name}!<br/>
+          <span style={{ fontSize:20, fontWeight:600, opacity:0.95 }}>{display(team)} es el campeón del mundo 🎉</span>
+        </h1>
+        <button onClick={onClose} style={{
+          background:"#fff", color:"#111", border:"none", borderRadius:20,
+          padding:"10px 24px", fontSize:13, fontWeight:600, cursor:"pointer",
+        }}>
+          Ver detalles de la quiniela
+        </button>
       </div>
     </div>
   );
@@ -222,6 +282,7 @@ export default function App() {
   const [qualifiedTeams, setQualifiedTeams] = useState([]);
 
   const [selectedTeam, setSelectedTeam] = useState(null);
+  const [championScreenDismissed, setChampionScreenDismissed] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -304,6 +365,12 @@ export default function App() {
     .map(p => ({ ...p, score: scores[p.name] }))
     .sort((a, b) => b.score - a.score);
 
+  // Campeón del mundial: ganador de la Final
+  const finalMatch = knockoutMatches.find(m => m.type === "final");
+  const championTeam = finalMatch?.winner || null;
+  const championParticipant = championTeam ? getParticipant(championTeam) : null;
+  const showChampionScreen = !!championParticipant && !championScreenDismissed;
+
   // Teams that lost a knockout match
   const eliminatedTeams = new Set();
   knockoutMatches.forEach(m => {
@@ -348,6 +415,14 @@ export default function App() {
 
   return (
     <div style={{ fontFamily:"'Inter','Segoe UI',sans-serif", background:"#f8fafc", minHeight:"100vh" }}>
+
+      {showChampionScreen && (
+        <ChampionScreen
+          participant={championParticipant}
+          team={championTeam}
+          onClose={() => setChampionScreenDismissed(true)}
+        />
+      )}
 
       {/* Header */}
       <div style={{ background:"linear-gradient(135deg,#064e3b 0%,#065f46 50%,#047857 100%)", padding:"20px 20px 0", textAlign:"center" }}>
@@ -457,7 +532,7 @@ export default function App() {
             {tab === "bracket" && (
               <div>
                 <h2 style={{ fontSize:17, fontWeight:600, color:"#111", margin:"0 0 4px" }}>Cuadro eliminatorio</h2>
-                <p style={{ fontSize:13, color:"#6b7280", margin:"0 0 20px" }}>Datos en tiempo real desde worldcup26.ir</p>
+                <p style={{ fontSize:13, color:"#6b7280", margin:"0 0 20px" }}>Datos en tiempo real desde worldcup26.ir · Horarios en hora de Ciudad de México</p>
                 {ROUND_ORDER.map(rnd => {
                   const matches = knockoutByType[rnd] || [];
                   if (matches.length === 0) return null;
@@ -537,7 +612,7 @@ export default function App() {
             {tab === "grupos" && (
               <div>
                 <h2 style={{ fontSize:17, fontWeight:600, color:"#111", margin:"0 0 4px" }}>Fase de grupos</h2>
-                <p style={{ fontSize:13, color:"#6b7280", margin:"0 0 20px" }}>Resultados y tabla de posiciones de todos los grupos.</p>
+                <p style={{ fontSize:13, color:"#6b7280", margin:"0 0 20px" }}>Resultados y tabla de posiciones de todos los grupos. Horarios en hora de Ciudad de México.</p>
 
                 {/* Tabla de posiciones */}
                 {standings.length > 0 && (
